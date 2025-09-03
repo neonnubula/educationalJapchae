@@ -23,8 +23,10 @@ void main() async {
     // Supabase initialization via --dart-define (SUPABASE_URL, SUPABASE_ANON_KEY)
     const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
     const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+    bool isSupabaseReady = false;
     if (supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty) {
       await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+      isSupabaseReady = true;
     } else {
       debugPrint('Supabase env not set; skipping Supabase.initialize');
     }
@@ -41,21 +43,25 @@ void main() async {
     final storageService = StorageService(notificationService);
     await storageService.init();
     final isFirstLaunch = storageService.isFirstLaunch;
-    final session = Supabase.instance.client.auth.currentSession;
-    final initial = session == null
-        ? const SignInScreen()
-        : (isFirstLaunch ? OnboardingScreen() : MainAppScreen());
+    Widget initial;
+    if (isSupabaseReady) {
+      final session = Supabase.instance.client.auth.currentSession;
+      initial = session == null
+          ? const SignInScreen()
+          : (isFirstLaunch ? OnboardingScreen() : MainAppScreen());
 
-    // Watch auth state to hot-switch between signed-in and signed-out
-    Supabase.instance.client.auth.onAuthStateChange.listen((event) {
-      // Force rebuild by restarting app with appropriate initial route
-      runApp(
-        ChangeNotifierProvider(
-          create: (context) => storageService,
-          child: MostImportantThingApp(initialRoute: event.session == null ? const SignInScreen() : (isFirstLaunch ? OnboardingScreen() : MainAppScreen())),
-        ),
-      );
-    });
+      // Watch auth state to hot-switch between signed-in and signed-out
+      Supabase.instance.client.auth.onAuthStateChange.listen((event) {
+        runApp(
+          ChangeNotifierProvider(
+            create: (context) => storageService,
+            child: MostImportantThingApp(initialRoute: event.session == null ? const SignInScreen() : (isFirstLaunch ? OnboardingScreen() : MainAppScreen())),
+          ),
+        );
+      });
+    } else {
+      initial = const _MissingSupabaseConfigScreen();
+    }
 
     runApp(
       ChangeNotifierProvider(
@@ -167,6 +173,40 @@ class MostImportantThingApp extends StatelessWidget {
             child: initialRoute,
           );
         },
+      ),
+    );
+  }
+}
+
+class _MissingSupabaseConfigScreen extends StatelessWidget {
+  const _MissingSupabaseConfigScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: const [
+              Text(
+                'Missing Supabase configuration',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Run the app with:\n' 
+                '--dart-define=SUPABASE_URL=...\n' 
+                '--dart-define=SUPABASE_ANON_KEY=...\n' 
+                'Then restart the app.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
