@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:most_important_thing/models/goal_model.dart';
 import 'package:most_important_thing/screens/main_app_screen.dart';
@@ -18,6 +19,15 @@ void main() async {
   };
 
   try {
+    // Supabase initialization via --dart-define (SUPABASE_URL, SUPABASE_ANON_KEY)
+    const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+    const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+    if (supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty) {
+      await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+    } else {
+      debugPrint('Supabase env not set; skipping Supabase.initialize');
+    }
+
     final notificationService = NotificationService();
     await notificationService.init();
 
