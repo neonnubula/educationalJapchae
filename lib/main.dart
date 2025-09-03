@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:most_important_thing/models/goal_model.dart';
 import 'package:most_important_thing/screens/main_app_screen.dart';
 import 'package:most_important_thing/screens/onboarding_screen.dart';
+import 'package:most_important_thing/screens/sign_in_screen.dart';
 import 'package:most_important_thing/services/notification_service.dart';
 import 'package:most_important_thing/services/storage_service.dart';
 import 'package:most_important_thing/widgets/app_header.dart';
@@ -40,10 +41,26 @@ void main() async {
     final storageService = StorageService(notificationService);
     await storageService.init();
     final isFirstLaunch = storageService.isFirstLaunch;
+    final session = Supabase.instance.client.auth.currentSession;
+    final initial = session == null
+        ? const SignInScreen()
+        : (isFirstLaunch ? OnboardingScreen() : MainAppScreen());
+
+    // Watch auth state to hot-switch between signed-in and signed-out
+    Supabase.instance.client.auth.onAuthStateChange.listen((event) {
+      // Force rebuild by restarting app with appropriate initial route
+      runApp(
+        ChangeNotifierProvider(
+          create: (context) => storageService,
+          child: MostImportantThingApp(initialRoute: event.session == null ? const SignInScreen() : (isFirstLaunch ? OnboardingScreen() : MainAppScreen())),
+        ),
+      );
+    });
+
     runApp(
       ChangeNotifierProvider(
         create: (context) => storageService,
-        child: MostImportantThingApp(initialRoute: isFirstLaunch ? OnboardingScreen() : MainAppScreen()),
+        child: MostImportantThingApp(initialRoute: initial),
       ),
     );
   } catch (e) {
